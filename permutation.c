@@ -1,13 +1,8 @@
 #include<stdio.h>
-void swap(int *a,int *b)
-{
-    int tmp=*a;
-    *a=*b;
-    *b=tmp;
-}
-int array[1000];
+
 void permutation(int a[],int isvisited[],int k,int n)
 {
+    static int array[1000];
     if(k==n)
     {
         for(int i=0;i<n;i++)
@@ -21,7 +16,6 @@ void permutation(int a[],int isvisited[],int k,int n)
             isvisited[i]=1;
             array[k]=a[i];
             permutation(a,isvisited,k+1,n);
-            //swap(&a[k],&a[i]);
             isvisited[i]=0;
         }
     }
