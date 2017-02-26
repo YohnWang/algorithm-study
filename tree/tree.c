@@ -41,15 +41,39 @@ void tree_insert(tree *root,tree *left,tree *right)
 
 void tree_prev_visit(tree *root,void (*handler)(tree *root,void *args),void *args)
 {
+    //recursive
     if(root!=NULL)
     {
         handler(root,args);
         tree_prev_visit(root->left,handler,args);
         tree_prev_visit(root->right,handler,args);
     }
+
 }
 
-void tree_add(){}
+void tree_inorder_visit(tree *root,void (*handler)(tree *root,void *args),void *args)
+{
+    //recursive
+    if(root!=NULL)
+    {
+        tree_inorder_visit(root->left,handler,args);
+        handler(root,args);
+        tree_inorder_visit(root->right,handler,args);
+    }
+}
+
+void tree_post_visit(tree *root,void (*handler)(tree *root,void *args),void *args)
+{
+    //recursive
+    if(root!=NULL)
+    {
+        tree_post_visit(root->left,handler,args);
+        tree_post_visit(root->right,handler,args);
+        handler(root,args);
+    }
+
+}
+
 
 struct number
 {
@@ -71,10 +95,15 @@ int main(int argc,char *argv[])
         tree_init(&a[i].tree);
         a[i].x=i;
     }
-    tree_insert(&a[0].tree,&a[1],&a[2]);
-    tree_insert(&a[1],&a[4],&a[3]);
-    tree_insert(&a[2],NULL,&a[5]);
-    tree_insert(&a[5],&a[6],&a[7]);
-    tree_insert(&a[7],&a[8],NULL);
-    tree_prev_visit(&a[0],print,NULL);
+    tree_insert(&a[0].tree,&a[1].tree,&a[2].tree);
+    tree_insert(&a[1].tree,&a[4].tree,&a[3].tree);
+    tree_insert(&a[2].tree,NULL,&a[5].tree);
+    tree_insert(&a[5].tree,&a[6].tree,&a[7].tree);
+    tree_insert(&a[7].tree,&a[8].tree,NULL);
+    tree_prev_visit(&a[0].tree,print,NULL);
+    printf("\n");
+    tree_inorder_visit(&a[0].tree,print,NULL);
+    printf("\n");
+    tree_post_visit(&a[0].tree,print,NULL);
+    printf("\n");
 }
