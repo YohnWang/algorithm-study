@@ -29,6 +29,14 @@ inline tree* tree_parent(tree *p)
     return p->parent;
 }
 
+tree* tree_root(tree *p)
+{
+    if(tree_parent(p)!=p)
+        return tree_root(tree_parent(p));
+    else
+        return p;
+}
+
 void tree_insert(tree *root,tree *left,tree *right)
 {
     root->left=left;
@@ -74,6 +82,8 @@ void tree_post_visit(tree *root,void (*handler)(tree *root,void *args),void *arg
 
 }
 
+
+
 void tree_add(tree *root,int (*cmp)(tree *a,tree*b),tree *new)
 {
     if(cmp(new,root))
@@ -94,7 +104,47 @@ void tree_add(tree *root,int (*cmp)(tree *a,tree*b),tree *new)
 
 void tree_del(tree *node)
 {
-    //TODO
+    if(tree_left(node)==NULL && tree_right(node)==NULL)
+    {
+        tree *parent=node->parent;
+        if(parent->left==node)
+            parent->left=NULL;
+        else
+            parent->right=NULL;
+    }
+    else if(tree_left(node)==NULL && tree_right(node)!=NULL)
+    {
+        tree *parent=node->parent;
+        if(parent->left==node)
+            parent->left=tree_right(node);
+        else
+            parent->right=tree_right(node);
+    }
+    else if(tree_left(node)!=NULL && tree_right(node)==NULL)
+    {
+        tree *parent=node->parent;
+        if(parent->left==node)
+            parent->left=tree_left(node);
+        else
+            parent->right=tree_left(node);
+    }
+    else
+    {
+        tree *left=tree_left(node);
+        while(tree_right(left))
+        {
+            left=tree_right(left);
+        }
+        tree_del(left);
+
+        left->left=node->left;
+        left->right=node->right;
+        if(tree_parent(node)!=node)
+            left->parent=node->parent;
+        else
+            left->parent=left;
+    }
+
 }
 
 struct number
@@ -128,5 +178,7 @@ int main(int argc,char *argv[])
     {
         tree_add(&a[0].tree,number_cmp,&a[i].tree);
     }
-    tree_inorder_visit(&a[0].tree,print,NULL);
+    tree_del(&a[0].tree);
+    tree_inorder_visit(tree_root(&a[8].tree),print,NULL);
+    printf("\n%d",((struct number*)tree_root(&a[8].tree))->x);
 }
