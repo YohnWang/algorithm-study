@@ -130,9 +130,16 @@ void bgn_del(bgn b)
     vector_del(&b.v);
 }
 
+void bgn_mov(bgn *a,bgn b)
+{
+    bgn_del(*a);
+    a->sign=b.sign;
+    a->v=b.v;
+}
+
 char* bgn_str(char *s,bgn b)
 {
-    int i,k=0;
+    int k=0;
     if(b.sign)
         s[k++]='-';
     for(int i=b.v.size-1;i>=0;i--)
@@ -167,6 +174,50 @@ int bgn_cmp(bgn a,bgn b)
             return -1;
     }
     return 0;
+}
+
+bgn bgn_shift(bgn b,int offset)
+{
+    bgn c;
+    bgn e=bgn_new("0");
+    if(-offset>=b.v.size||bgn_cmp(b,e)==0)
+        return e;
+    bgn_del(e);
+    c.sign=b.sign;
+    vector_init(&c.v);
+    if(offset>=0)
+    {
+        for(int i=0;i<offset;i++)
+            vector_push_back(&c.v,0);
+        for(int i=0;i<b.v.size;i++)
+            vector_push_back(&c.v,vector_at(&b.v,i));
+    }
+    else
+    {
+        for(int i=-offset;i<b.v.size;i++)
+            vector_push_back(&c.v,vector_at(&b.v,i));
+    }
+    return c;
+}
+
+bgn bgn_cut(bgn b,int rest)
+{
+    bgn c;
+    c.sign=b.sign;
+
+    if(rest>=b.v.size)
+    {
+        vector_copy(&c.v,&b.v);
+        return c;
+    }
+    vector_init(&c.v);
+    for(int i=0;i<rest;i++)
+        vector_push_back(&c.v,b.v.a[i]);
+    while(c.v.size>1&&c.v.a[c.v.size-1]==0)
+        vector_pop_back(&c.v);
+    if(c.v.size==1&&c.v.a[0]==0)
+        c.sign=0;
+    return c;
 }
 
 bgn bgn_sub(bgn a,bgn b);
@@ -254,16 +305,144 @@ bgn bgn_sub(bgn a,bgn b)
         vector_push_back(&c.v,diff);
         i++;
     }
+    while(c.v.a[c.v.size-1]==0)
+        vector_pop_back(&c.v);
     return c;
 }
 
+bgn bgn_mul(bgn a,bgn b)
+{
+    bgn c=bgn_new("0");
+    /*
+    bgn table[11];
+    int table_flag[10]={0};
+    for(int i=0;i<11;i++)
+        table[i]=bgn_new("0");
+    */
+    if(bgn_cmp(a,c)==0||bgn_cmp(b,c)==0)
+        return c;
 
+    for(int i=0;i<b.v.size;i++)
+    {
+        int carry=0;
+        bgn tmp;
+        int pos=b.v.a[i];
+        //if(table_flag[pos]==0)
+        //{
+        //   printf("occured\n");
+            tmp.sign=0;
+            vector_init(&tmp.v);
+            for(int j=0;j<a.v.size;j++)
+            {
+                int product=a.v.a[j]*b.v.a[i]+carry;
+                carry=product/10;
+                vector_push_back(&tmp.v,product-10*carry);
+            }
+            if(carry!=0)
+                vector_push_back(&tmp.v,carry);
+
+         //   bgn_mov(&table[pos],bgn_add(tmp,table[10]));//tmp + 0 -> table
+         //   table_flag[pos]=1;
+
+            bgn_mov(&tmp,bgn_shift(tmp,i));
+            bgn_mov(&c,bgn_add(c,tmp));
+            bgn_del(tmp);
+        //}
+        //else
+        //{
+         //   tmp=bgn_shift(table[pos],i);
+         //   bgn_mov(&c,bgn_add(c,tmp));
+         //   bgn_del(tmp);
+        //}
+    }
+    //for(int i=0;i<11;i++)
+    //    bgn_del(table[i]);
+    //sign
+    if((a.sign&&b.sign) || (!a.sign&&!b.sign))
+        c.sign=0;
+    else
+        c.sign=1;
+    return c;
+}
+static char ts[10000];
+bgn bgn_mul_quick(bgn a,bgn b)
+{
+    //static int cnt=0;
+    //printf("occure %d\n",cnt++);
+    const int limit=30;
+    int  offset;
+    if(a.v.size>limit&&b.v.size>limit)
+        offset=a.v.size/2;
+    else if(a.v.size<limit&&b.v.size>limit)
+        return bgn_mul(b,a);
+    //else if(a.v.size>limit&&b.v.size<limit)
+    //     offset=a.v.size/2;
+    else
+        return bgn_mul(a,b);
+
+    bgn A,B,C,D;
+    A=bgn_shift(a,-offset);
+    B=bgn_cut(a,offset);
+    //B=bgn_sub(a,bgn_shift(A,offset));
+    C=bgn_shift(b,-offset);
+    D=bgn_cut(b,offset);
+    //D=bgn_sub(b,bgn_shift(C,offset));
+
+    //printf("%s\n",bgn_str(ts,A));
+    //printf("%s\n",bgn_str(ts,B));
+    //printf("%s\n",bgn_str(ts,C));
+    //printf("%s\n",bgn_str(ts,D));
+
+    bgn AC,BD,X,Y;
+    AC=bgn_mul_quick(A,C);
+    BD=bgn_mul_quick(B,D);
+    X=bgn_sub(B,A);
+    Y=bgn_sub(C,D);
+    //printf("%s\n",bgn_str(ts,X));
+    //printf("%s\n",bgn_str(ts,Y));
+    bgn XY=bgn_mul_quick(X,Y);
+    bgn_mov(&XY,bgn_add(XY,AC));
+    bgn_mov(&XY,bgn_add(XY,BD));
+    bgn_mov(&XY,bgn_shift(XY,offset));
+    bgn_mov(&XY,bgn_add(XY,BD));
+    bgn_mov(&AC,bgn_shift(AC,offset*2));
+    bgn_mov(&XY,bgn_add(AC,XY));
+
+    bgn_del(A);bgn_del(B);bgn_del(C);
+    bgn_del(D);bgn_del(X);bgn_del(Y);
+    bgn_del(AC);bgn_del(BD);
+    return XY;
+}
+
+char s[100000000];
 int main(int argc,char *argv[])
 {
-    char s[100];
-    bgn a,b;
-    a=bgn_new("-0");
-    b=bgn_new("0");
-    bgn c=bgn_add(a,b);
-    printf("%s\n",bgn_str(s,a));
+
+    bgn a,b,c;
+    a=bgn_new("1");
+    b=bgn_new("-9000");
+    bgn_mov(&a,bgn_shift(a,30000));
+    bgn_mov(&b,bgn_shift(b,10000));
+    for(int i=1000000;i<=10000;i++)
+    {
+        //printf("%d\n",i);
+        sprintf(s,"%d",i);
+        b=bgn_new(s);
+        bgn_mov(&a,bgn_mul_quick(a,b));
+        bgn_del(b);
+    }
+    //a=bgn_shift(a,100);
+    //a=bgn_mul(a,b);
+    //a=bgn_cut(a,104);
+    //bgn c=bgn_add(a,b);
+    //b=bgn_shift(a,-5);
+    //b=bgn_shift(b,5);
+    //c=bgn_sub(a,b);
+    //bgn x,y,z;
+    //x=bgn_new("100000000000000000");
+    //y=bgn_new("123456789987654321");
+    //z=bgn_mul_quick(x,y);
+    c=bgn_mul(a,b);
+    //bgn_mov(&a,bgn_cut(a,4));
+    printf("%s\n",bgn_str(s,c));
 }
