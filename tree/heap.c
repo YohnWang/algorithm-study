@@ -5,7 +5,6 @@
 
 void percdown(int a[],int i,int n)
 {
-    //percolate down node i
     for(;i<n;)
     {
         int left=2*i+1;
@@ -29,10 +28,27 @@ void percdown(int a[],int i,int n)
     }
 }
 
+void percdown_2(int a[],int i,int n)
+{
+    int child;
+    int tmp=a[i];
+    for(;2*i+1<n;i=child)
+    {
+        child=2*i+1; //left child
+        if(child<n-1&&a[child+1]>a[child])//find the bigger child
+            child++;
+        if(tmp<a[child])
+            a[i]=a[child];
+        else
+            break;
+    }
+    a[i]=tmp;
+}
+
 void make_heap(int a[],int n)
 {
     for(int i=(n-1)/2;i>=0;i--)
-        percdown(a,i,n);
+        percdown_2(a,i,n);
 }
 
 int pop_heap(int a[],int n)
