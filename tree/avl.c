@@ -66,7 +66,7 @@ static avl* lr_rotate(avl *k3)
 
 static avl* rl_rotate(avl *k3)
 {
-    k3->right=ll_rotate(k3->left);
+    k3->right=ll_rotate(k3->right);
     return rr_rotate(k3);
 }
 
@@ -91,7 +91,7 @@ avl* avl_add(avl *r,Etype x)
             int cmp2=Etype_cmp(&x,&r->left->data);
             if(cmp2<0)
                 r=ll_rotate(r);
-            else
+            else if(cmp2>0)
                 r=lr_rotate(r);
         }
     }
@@ -105,7 +105,7 @@ avl* avl_add(avl *r,Etype x)
             int cmp2=Etype_cmp(&x,&r->right->data);
             if(cmp2>0)
                 r=rr_rotate(r);
-            else
+            else if(cmp2<0)
                 r=rl_rotate(r);
         }
     }
@@ -126,9 +126,11 @@ void inorder(avl *r)
 int main(int argc,char *argv[])
 {
     avl *r=NULL;
-    for(int i=0;i<100;i++)
+    for(int i=0;i<1000000;i++)
     {
-        r=avl_add(r,i);
+        int t=rand();
+        printf("%d\n",t);
+        r=avl_add(r,t);
     }
     inorder(r);
     printf("height=%d\n",get_height(r));
