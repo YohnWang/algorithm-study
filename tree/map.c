@@ -2,16 +2,28 @@
 #include<stdlib.h>
 #include<string.h>
 
-typedef struct
+
+typedef char* type_left;
+typedef int   type_right;
+
+static inline int type_left_cmp(type_left *a,type_left *b)
 {
-   char *key;
-   int   value;
-} Etype;
+    return strcmp(*a,*b);
+}
+
+
+struct pair
+{
+    type_left  key;
+    type_right value;
+};
+typedef struct pair pair;
+typedef pair Etype;
 
 static int Etype_cmp(Etype *a,Etype *b)
 {
     //
-    return strcmp(a->key,b->key);
+    return type_left_cmp(&a->key,&b->key);
 }
 
 typedef struct avl avl;
@@ -138,12 +150,12 @@ void map_add(map *m,Etype x)
     m->tree=avl_add(m->tree,x);
 }
 
-int map_find(map *m,Etype key)
+type_right map_find(map *m,type_left key)
 {
     avl *r=m->tree;
     while(r!=NULL)
     {
-        int c=Etype_cmp(&key,&r->data);
+        int c=type_left_cmp(&key,&r->data.key);
         if(c==0)
             return r->data.value;
         else if(c<0)
@@ -157,12 +169,13 @@ int map_find(map *m,Etype key)
 int main(int argc,char *argv[])
 {
     map *map=make_map();
-    for(int i=0;i<100000;i++)
+    for(int i=0;i<10000000;i++)
     {
         char *s=malloc(20);
         sprintf(s,"%d",i);
         Etype p={s,i};
         map_add(map,p);
     }
-    printf("%d",map_find(map,(Etype){.key="100"}));
+    printf("create success\n");
+    printf("%d",map_find(map,"10240"));
 }
