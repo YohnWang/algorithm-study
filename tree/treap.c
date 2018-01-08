@@ -29,8 +29,6 @@ int quick_rand()
 {
     static int seed=1;
     seed=seed*1103515245+12345;
-    //if(seed<100000 &&seed>0)
-    //    printf("seed=%d\n",seed);
     return seed;
 }
 treap* treap_add(treap *r,int data)
@@ -72,20 +70,30 @@ treap* treap_del(treap *r,int data)
         r->right=treap_del(r->right,data);
     else
     {
-        if(r->left->prio<r->right->prio)
-        {
-            r=ll_rotate(r);
-        }
-        else
-        {
-            r=rr_rotate(r);
-        }
-        if(r->left!=NULL)
-            r=treap_del(r->left,data);
-        else
+        if(r->left==NULL && r->right==NULL)
         {
             free(r);
             r=NULL;
+        }
+        else if(r->left==NULL)
+        {
+            treap *p=r->right;
+            free(r);
+            r=p;
+        }
+        else if(r->right==NULL)
+        {
+            treap *p=r->left;
+            free(r);
+            r=p;
+        }
+        else
+        {
+            if(r->left->prio<r->right->prio)
+                r=ll_rotate(r);
+            else
+                r=rr_rotate(r);
+            r=treap_del(r,data);
         }
     }
     return r;
@@ -116,6 +124,11 @@ int main(int argc,char *argv[])
     treap *r=NULL;
     for(int i=0;i<1000;i++)
         r=treap_add(r,i);
+    for(int i=100;i<900;i++)
+        r=treap_del(r,i);
+    // treap_del(r,0);
+    // treap_del(r,999);
+    // treap_del(r,500);
     inorder(r);
     dfs(r,1);
     printf("%d",count);
