@@ -60,9 +60,14 @@ static void vector_resize(vector *v,int new_size)
     }
 }
 
+static inline void vector_fit(vector *v)
+{
+    vector_recapacity(v,vector_size(v));
+}
+
 //vector interface
 
-vector* vector_init(vector *v)
+static vector* vector_init(vector *v)
 {
     v->size=0;
     v->capacity=0;
@@ -70,24 +75,30 @@ vector* vector_init(vector *v)
     return v;
 }
 
-void vector_del(vector *v)
+static void vector_del(vector *v)
 {
     v->size=0;
-    v->capacity=1;
+    v->capacity=0;
     free(v->a);
     v->a=NULL;
 }
 
-static void vector_push_back(vector *v,Etype e)
+static inline void vector_clear(vector *v)
+{
+    v->size=0;
+}
+
+//using
+static inline void vector_push_back(vector *v,Etype e)
 {
     int size=vector_size(v);
     int cap =vector_capacity(v);
     if(size==cap)
-        vector_recapacity(v,(cap<<2)+1);
+        vector_recapacity(v,cap*2+1);
     v->a[v->size++]=e;
 }
 
-static void vector_pop_back(vector *v)
+static inline void vector_pop_back(vector *v)
 {
     if(v->size!=0)
         v->size--;
@@ -100,15 +111,34 @@ static inline Etype* vector_at(vector *v,int position)
 
 static inline Etype* vector_back(vector *v)
 {
-    return &v->a[v->size-1];
+    return vector_at(v,vector_size(v)-1);
 }
 
-void vector_copy(vector *new,vector *v)
+static inline Etype* vector_front(vector *v)
 {
-    new->size=v->size;
-    new->capacity=v->capacity;
-    new->a=malloc(new->capacity*sizeof(Etype));
-    memcpy(new->a,v->a,new->size*sizeof(Etype));
+    return vector_at(v,0);
+}
+
+static inline Etype* vector_begin(vector *v)
+{
+    return &v->a[0];
+}
+
+static inline Etype* vector_end(vector *v)
+{
+    return &v->a[vector_size(v)];
+}
+
+static inline Etype* vector_data(vector *v)
+{
+    return vector_begin(v);
+}
+
+static void vector_assign(vector *new,vector *v)
+{
+    vector_del(new);
+    vector_resize(new,vector_size(v));
+    memcpy(vector_data(new),vector_data(v),vector_size(new)*sizeof(Etype));
 }
 
 
@@ -157,13 +187,12 @@ char* bgn_str(char *s,bgn b)
     return s;
 }
 
-bgn* bgn_neg(bgn *b)
+void bgn_neg(bgn *b)
 {
     if(b->sign==POSITIVE)
         b->sign=NEGATIVE;
     else
         b->sign=POSITIVE;
-    return b;
 }
 
 static int bgn_cmp_ls_pos(bgn a,bgn b)
@@ -201,6 +230,49 @@ int bgn_cmp(bgn a,bgn b)
         return 1;//>
     else
         return -1;//<
+}
+
+bgn bgn_cpy(bgn a)
+{
+    bgn c=bgn_new(0);
+    vector_del(&c.v);
+    vector_assign(&c.v,&a.v);
+    c.sign=a.sign;
+    return c;
+}
+
+static bgn bgn_add_mov_nosign(bgn a, bgn b) //a+=b
+{
+    int i;
+    int32_t carry=0;
+    for(i=0;i<vector_size(&a.v)&&i<vector_size(&b.v);i++)
+    {
+        int32_t sum=*vector_at(&a.v,i)+*vector_at(&b.v,i)+carry;
+        carry=sum/RADIX;
+        *vector_at(&a.v,i)=sum%RADIX;
+    }
+    while(i<vector_size(&a.v))
+    {
+        int32_t sum=*vector_at(&a.v,i)+carry;
+        carry=sum/RADIX;
+        *vector_at(&a.v,i)=sum%RADIX;
+        i++;
+    }
+    while(i<vector_size(&b.v))
+    {
+        int32_t sum=*vector_at(&b.v,i)+carry;
+        carry=sum/RADIX;
+        vector_push_back(&a.v,sum%RADIX);
+        i++;
+    }
+    if(carry!=0)
+        vector_push_back(&a.v,carry);
+    return a;
+}
+
+static bgn bgn_add_mov(bgn a,bgn b)
+{
+
 }
 
 static bgn bgn_add_nosign(bgn a,bgn b)
@@ -381,14 +453,16 @@ bgn bgn_shift(bgn b,int offset)
    // return c;
 }
 
-static bgn bgn_mul_nor(bgn a,bgn b)
+static bgn bgn_mul_nor(bgn a,bgn b)  // size of a should be bigger than size of b
 {
     bgn c=bgn_new(0);
-    vector_pop_back(&c.v);
+    int cap=vector_size(&a.v)>vector_size(&b.v)?vector_size(&a.v):vector_size(&b.v);
+    vector_recapacity(&c.v,cap*2+1);
     for(int i=0;i<vector_size(&a.v);i++)
     {
         bgn tmp=bgn_new(0);
         vector_pop_back(&tmp.v);
+        vector_recapacity(&tmp.v,vector_size(&b.v)+i*2);
         for(int k=0;k<i;k++)
             vector_push_back(&tmp.v,0);
         int64_t factor=*vector_at(&a.v,i);
@@ -401,10 +475,11 @@ static bgn bgn_mul_nor(bgn a,bgn b)
         }
         if(carry!=0)
             vector_push_back(&tmp.v,carry);
-        bgn x=bgn_add(c,tmp);
-        bgn_del(c);
+        //bgn x=bgn_add(c,tmp);
+        c=bgn_add_mov_nosign(c,tmp);
+        //bgn_del(c);
         bgn_del(tmp);
-        c=x;
+        //c=x;
     }
     if(a.sign==b.sign)
         c.sign=POSITIVE;
@@ -423,7 +498,11 @@ char s[100000000];
 int main(int argc,char *argv[])
 {
     bgn pr=bgn_new(1);
-    for(int i=2;i<10000;i++)
+    bgn x=bgn_new(1);
+    x=bgn_sl(x,10);
+    bgn y=bgn_new(1);
+    bgn z=bgn_sub(y,x);
+    for(int i=2;!(i<=100000);i++)
     {
         bgn now=bgn_new(i);
         bgn tmp=bgn_mul_nor(now,pr);
@@ -431,6 +510,6 @@ int main(int argc,char *argv[])
         bgn_del(pr);
         pr=tmp;
     }
-    bgn_str(s,pr);
+    bgn_str(s,z);
     printf("%s",s);
 }
