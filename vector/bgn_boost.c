@@ -3,6 +3,7 @@
 #include<ctype.h>
 #include<stdio.h>
 #include<stdint.h>
+#include<time.h>
 
 //data structure of vector
 typedef int32_t Etype;
@@ -30,6 +31,8 @@ static inline int vector_capacity(vector *v)
 
 static void vector_recapacity(vector *v,int new_cap)
 {
+    //static int count=0;
+    //printf("call %d\n",++count);
     int cap=vector_capacity(v);
     int size=vector_size(v);
     //only when new_cap>cap can change capacity
@@ -50,7 +53,7 @@ static void vector_resize(vector *v,int new_size)
     if(size<new_size)
     {
         int cap=vector_capacity(v);
-        if(new_size<cap)
+        if(new_size<=cap)
             v->size=new_size;
         else
         {
@@ -94,7 +97,7 @@ static inline void vector_push_back(vector *v,Etype e)
     int size=vector_size(v);
     int cap =vector_capacity(v);
     if(size==cap)
-        vector_recapacity(v,cap*2+1);
+        vector_recapacity(v,cap+cap/2+1);
     v->a[v->size++]=e;
 }
 
@@ -141,8 +144,6 @@ static void vector_assign(vector *new,vector *v)
     memcpy(vector_data(new),vector_data(v),vector_size(new)*sizeof(Etype));
 }
 
-
-
 //big number
 enum {POSITIVE,NEGATIVE,RADIX=1000000000};
 typedef struct bgn bgn;
@@ -174,15 +175,18 @@ void bgn_del(bgn b)
 char* bgn_str(char *s,bgn b)
 {
     char tmp[64];
+    int len=0;
     if(b.sign==NEGATIVE)
-        sprintf(tmp,"-%d",*vector_back(&b.v));
+        len=sprintf(tmp,"-%d",*vector_back(&b.v));
     else
-        sprintf(tmp,"%d",*vector_back(&b.v));
+        len=sprintf(tmp,"%d",*vector_back(&b.v));
     strcpy(s,tmp);
+    int cnt=0;
     for(int i=vector_size(&b.v)-2;i>=0;i--)
     {
         sprintf(tmp,"%.9d",*vector_at(&b.v,i));
-        strcat(s,tmp);
+        strcpy(s+len+cnt*9,tmp);
+        cnt++;
     }
     return s;
 }
@@ -234,14 +238,14 @@ int bgn_cmp(bgn a,bgn b)
 
 bgn bgn_cpy(bgn a)
 {
-    bgn c=bgn_new(0);
-    vector_del(&c.v);
+    bgn c;
+    vector_init(&c.v);
     vector_assign(&c.v,&a.v);
     c.sign=a.sign;
     return c;
 }
 
-static bgn bgn_add_mov_nosign(bgn a, bgn b) //a+=b
+static bgn bgn_add_mov_nosign(bgn a, bgn b) //a+=b ,and must be a=bgn_add_mov_nosign(a,b);
 {
     int i;
     int32_t carry=0;
@@ -270,57 +274,13 @@ static bgn bgn_add_mov_nosign(bgn a, bgn b) //a+=b
     return a;
 }
 
-static bgn bgn_add_mov(bgn a,bgn b)
+static bgn bgn_sub_mov_nosign_bg(bgn a,bgn b)
 {
-
-}
-
-static bgn bgn_add_nosign(bgn a,bgn b)
-{
-    bgn c=bgn_new(0);
-    vector_pop_back(&c.v);
-    int cap=vector_size(&a.v)>vector_size(&b.v)?vector_size(&a.v):vector_size(&b.v);
-    vector_recapacity(&c.v,cap+1);
     int i;
     int32_t carry=0;
-    for(i=0;i<vector_size(&a.v)&&i<vector_size(&b.v);i++)
-    {
-        int32_t sum=*vector_at(&a.v,i)+*vector_at(&b.v,i)+carry;
-        carry=sum/RADIX;
-        vector_push_back(&c.v,sum%RADIX);
-    }
-    if(i<vector_size(&a.v))
-    {
-        int32_t sum=*vector_at(&a.v,i)+carry;
-        vector_push_back(&c.v,sum);
-        carry=0;
-        i++;
-    }
-    while(i<vector_size(&a.v))
-        vector_push_back(&c.v,*vector_at(&a.v,i++));
-    if(i<vector_size(&b.v))
-    {
-        int32_t sum=*vector_at(&b.v,i)+carry;
-        vector_push_back(&c.v,sum);
-        carry=0;
-        i++;
-    }
-    while(i<vector_size(&b.v))
-        vector_push_back(&c.v,*vector_at(&b.v,i++));
-    if(carry!=0)
-        vector_push_back(&c.v,carry);
-    return c;
-}
-
-static bgn bgn_sub_nosign_bg(bgn a, bgn b) //a>b
-{
-    bgn c=bgn_new(0);
-    vector_pop_back(&c.v);
-    int32_t carry=0;
-    int i;
     for(i=0;i<vector_size(&b.v);i++)
     {
-        int diff=*vector_at(&a.v,i)-*vector_at(&b.v,i)-carry;
+        int32_t diff=*vector_at(&a.v,i)-*vector_at(&b.v,i)-carry;
         if(diff<0)
         {
             diff+=RADIX;
@@ -328,95 +288,137 @@ static bgn bgn_sub_nosign_bg(bgn a, bgn b) //a>b
         }
         else
             carry=0;
-        vector_push_back(&c.v,diff);
-    }
-    if(i<vector_size(&a.v))
-    {
-        int diff=*vector_at(&a.v,i)-*vector_at(&b.v,i)-carry;
-        if(diff<0)
-        {
-            diff+=RADIX;
-            carry=1;
-        }
-        else
-            carry=0;
-        vector_push_back(&c.v,diff);
-        i++;
+        *vector_at(&a.v,i)=diff;
     }
     while(i<vector_size(&a.v))
-        vector_push_back(&c.v,*vector_at(&a.v,i++));
-    while(*vector_back(&c.v)==0)
-        vector_pop_back(&c.v);
-    return c;
+    {
+        int32_t diff=*vector_at(&a.v,i)-carry;
+        if(diff<0)
+        {
+            diff+=RADIX;
+            carry=1;
+        }
+        else
+            carry=0;
+        *vector_at(&a.v,i)=diff;
+        i++;
+    }
+    while(*vector_back(&a.v)==0)
+        vector_pop_back(&a.v);
+    return a;
 }
 
-static bgn bgn_sub_nosign(bgn a,bgn b)
+static bgn bgn_sub_mov_nosign_lw(bgn a, bgn b)
+{
+    int i;
+    int32_t carry=0;
+    for(i=0;i<vector_size(&a.v);i++)
+    {
+        int32_t diff=*vector_at(&b.v,i)-*vector_at(&a.v,i)-carry;
+        if(diff<0)
+        {
+            diff+=RADIX;
+            carry=1;
+        }
+        else
+            carry=0;
+        *vector_at(&a.v,i)=diff;
+    }
+    while(i<vector_size(&b.v))
+    {
+        int32_t diff=*vector_at(&b.v,i)-carry;
+        if(diff<0)
+        {
+            diff+=RADIX;
+            carry=1;
+        }
+        else
+            carry=0;
+        vector_push_back(&a.v,diff);
+        i++;
+    }
+    while(*vector_back(&a.v)==0)
+        vector_pop_back(&a.v);
+    return a;
+}
+
+bgn bgn_sub_mov_nosign(bgn a,bgn b)
 {
     int cmp=bgn_cmp_nosign(a,b);
     if(cmp>0)
     {
-         bgn c=bgn_sub_nosign_bg(a,b);
-         c.sign=POSITIVE;
-         return c;
+        a=bgn_sub_mov_nosign_bg(a,b);
+        a.sign=POSITIVE;
     }
     else if(cmp<0)
     {
-        bgn c=bgn_sub_nosign_bg(b,a);
-        c.sign=NEGATIVE;
-        return c;
+        a=bgn_sub_mov_nosign_lw(a,b);
+        a.sign=NEGATIVE;
     }
     else
-        return bgn_new(0);
+    {
+        vector_clear(&a.v);
+        vector_push_back(&a.v,0);
+        a.sign=POSITIVE;
+    }
+    return a;
 }
 
-bgn bgn_sub(bgn a, bgn b);
-bgn bgn_add(bgn a,bgn b)
+bgn bgn_sub_mov(bgn a,bgn b);
+bgn bgn_add_mov(bgn a,bgn b)
 {
-    bgn c;
     if(a.sign==b.sign)
-    {
-        c=bgn_add_nosign(a,b);
-        c.sign=a.sign;
-    }
+        a=bgn_add_mov_nosign(a,b);
     else if(a.sign==POSITIVE)
     {
         bgn_neg(&b);
-        c=bgn_sub(a,b);
+        a=bgn_sub_mov(a,b);
+        bgn_neg(&b);
+    }
+    else
+    {
+        a.sign=POSITIVE;
+        a=bgn_sub_mov(a,b);
+        bgn_neg(&a);
+    }
+    return a;
+}
+
+bgn bgn_sub_mov(bgn a,bgn b)
+{
+    if(a.sign==POSITIVE&&b.sign==POSITIVE)
+        a=bgn_sub_mov_nosign(a,b);
+    else if(a.sign==NEGATIVE&&b.sign==NEGATIVE)
+    {
+        a=bgn_sub_mov_nosign(a,b);
+        bgn_neg(&a);
+    }
+    else if(a.sign==POSITIVE&&b.sign==NEGATIVE)
+    {
+        bgn_neg(&b);
+        a=bgn_add_mov(a,b);
         bgn_neg(&b);
     }
     else
     {
         bgn_neg(&a);
-        c=bgn_sub(b,a);
-        bgn_neg(&a);
+        a=bgn_add_mov(a,b);
+        a.sign=NEGATIVE;
     }
+    return a;
+}
+
+bgn bgn_add(bgn a,bgn b)
+{
+    bgn c=bgn_cpy(a);
+    c=bgn_add_mov(c,b);
     return c;
 }
 
 bgn bgn_sub(bgn a,bgn b)
 {
-    bgn c;
-    if(a.sign==POSITIVE&&b.sign==POSITIVE)
-    {
-        c=bgn_sub_nosign(a,b);
-    }
-    else if(a.sign==NEGATIVE&&b.sign==NEGATIVE)
-    {
-        c=bgn_sub_nosign(a,b);
-        bgn_neg(&c);
-    }
-    else if(a.sign==POSITIVE)
-    {
-        bgn_neg(&b);
-        c=bgn_add(a,b);
-        bgn_neg(&b);
-    }
-    else
-    {
-        bgn_neg(&a);
-        c=bgn_add(a,b);
-        bgn_neg(&a);
-    }
+    bgn c=bgn_cpy(a);
+    c=bgn_sub_mov(c,b);
     return c;
 }
 
@@ -446,23 +448,16 @@ bgn bgn_sr(bgn b,int offset)
     return c;
 }
 
-bgn bgn_shift(bgn b,int offset)
-{
-
-
-   // return c;
-}
-
 static bgn bgn_mul_nor(bgn a,bgn b)  // size of a should be bigger than size of b
 {
     bgn c=bgn_new(0);
-    int cap=vector_size(&a.v)>vector_size(&b.v)?vector_size(&a.v):vector_size(&b.v);
-    vector_recapacity(&c.v,cap*2+1);
+    bgn tmp;
+    vector_init(&tmp.v);
+    vector_recapacity(&tmp.v,vector_size(&a.v)+vector_size(&b.v)+1);
+    vector_recapacity(&c.v,vector_size(&a.v)+vector_size(&b.v)+1);
     for(int i=0;i<vector_size(&a.v);i++)
     {
-        bgn tmp=bgn_new(0);
-        vector_pop_back(&tmp.v);
-        vector_recapacity(&tmp.v,vector_size(&b.v)+i*2);
+        vector_clear(&tmp.v);
         for(int k=0;k<i;k++)
             vector_push_back(&tmp.v,0);
         int64_t factor=*vector_at(&a.v,i);
@@ -475,12 +470,9 @@ static bgn bgn_mul_nor(bgn a,bgn b)  // size of a should be bigger than size of 
         }
         if(carry!=0)
             vector_push_back(&tmp.v,carry);
-        //bgn x=bgn_add(c,tmp);
         c=bgn_add_mov_nosign(c,tmp);
-        //bgn_del(c);
-        bgn_del(tmp);
-        //c=x;
     }
+    bgn_del(tmp);
     if(a.sign==b.sign)
         c.sign=POSITIVE;
     else
@@ -488,28 +480,27 @@ static bgn bgn_mul_nor(bgn a,bgn b)  // size of a should be bigger than size of 
     return c;
 }
 
-bgn* bgn_mul(bgn *a,bgn *b)
+bgn bgn_mul(bgn a,bgn b)
 {
-
+    if(vector_size(&a.v)>vector_size(&b.v))
+        return bgn_mul_nor(b,a);
+    else
+        return bgn_mul_nor(a,b);
 }
-
-
-char s[100000000];
+char s[1000000];
 int main(int argc,char *argv[])
 {
+    clock_t start=clock();
     bgn pr=bgn_new(1);
-    bgn x=bgn_new(1);
-    x=bgn_sl(x,10);
-    bgn y=bgn_new(1);
-    bgn z=bgn_sub(y,x);
-    for(int i=2;!(i<=100000);i++)
+    for(int i=2;(i<=100000);i++)
     {
         bgn now=bgn_new(i);
-        bgn tmp=bgn_mul_nor(now,pr);
+        bgn tmp=bgn_mul(pr,now);
         bgn_del(now);
         bgn_del(pr);
         pr=tmp;
     }
-    bgn_str(s,z);
+    bgn_str(s,pr);
     printf("%s",s);
+    printf("\ntime=%ld\n",clock()-start);
 }
