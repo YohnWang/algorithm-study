@@ -420,10 +420,10 @@ int main(int argc,char *argv[])
 
     bgn a,b,c;
     a=bgn_new("1");
-    b=bgn_new("-9000");
-    bgn_mov(&a,bgn_shift(a,30000));
-    bgn_mov(&b,bgn_shift(b,10000));
-    for(int i=1000000;i<=10000;i++)
+    //b=bgn_new("-9000");
+    //bgn_mov(&a,bgn_shift(a,30000));
+    //bgn_mov(&b,bgn_shift(b,10000));
+    for(int i=1;i<=10000;i++)
     {
         //printf("%d\n",i);
         sprintf(s,"%d",i);
@@ -442,7 +442,7 @@ int main(int argc,char *argv[])
     //x=bgn_new("100000000000000000");
     //y=bgn_new("123456789987654321");
     //z=bgn_mul_quick(x,y);
-    c=bgn_mul(a,b);
+    //c=bgn_mul(a,b);
     //bgn_mov(&a,bgn_cut(a,4));
-    printf("%s\n",bgn_str(s,c));
+    printf("%s\n",bgn_str(s,a));
 }

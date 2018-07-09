@@ -126,12 +126,12 @@ void inorder(avl *r)
 int main(int argc,char *argv[])
 {
     avl *r=NULL;
-    for(int i=0;i<1000000;i++)
+    for(int i=0;i<10000000;i++)
     {
-        int t=rand();
-        printf("%d\n",t);
-        r=avl_add(r,t);
+        //int t=rand();
+        //printf("%d\n",t);
+        r=avl_add(r,i);
     }
-    inorder(r);
-    printf("height=%d\n",get_height(r));
+    //inorder(r);
+    //printf("height=%d\n",get_height(r));
 }

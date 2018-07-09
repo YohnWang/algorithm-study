@@ -122,14 +122,14 @@ void dfs(treap *r,int deep)
 int main(int argc,char *argv[])
 {
     treap *r=NULL;
-    for(int i=0;i<1000;i++)
+    for(int i=0;i<10000000;i++)
         r=treap_add(r,i);
     for(int i=100;i<900;i++)
         r=treap_del(r,i);
     // treap_del(r,0);
     // treap_del(r,999);
     // treap_del(r,500);
-    inorder(r);
+    //inorder(r);
     dfs(r,1);
     printf("%d",count);
 }

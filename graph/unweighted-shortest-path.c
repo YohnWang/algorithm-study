@@ -138,6 +138,7 @@ void print_result(vertex v[],int n,int dist[],vertex* path[])
     {
         printf("id=%d ",v[i].id);
         print_path(path,&v[i]);
+        printf(" dist=%d",dist[i]);
         printf("\n");
     }
 }
