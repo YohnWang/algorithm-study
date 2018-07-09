@@ -10,25 +10,17 @@ typedef struct list list;
 
 void list_rev(list *head)
 {
-    list *first=head->next;
-    list *sub_list;
-    if(first==NULL)
-        return ;  //list is empty
-    sub_list=first->next;
-    first->next=NULL; //first node turn to end
-
-    list *tmp=sub_list;
-    list *next,*insert=first;
-    while(tmp!=NULL)
+    list *sub_list=head->next;
+    head->next=NULL;
+    while(sub_list!=NULL)
     {
-        next=tmp->next;
-        tmp->next=insert;
-        insert=tmp;
-        head->next=tmp;
-        tmp=next;
+        list *sub_next=sub_list->next;
+        list *head_next=head->next;
+        head->next=sub_list;
+        sub_list->next=head_next;
+        sub_list=sub_next;
     }
 }
-
 
 void print_list(list *head)
 {
